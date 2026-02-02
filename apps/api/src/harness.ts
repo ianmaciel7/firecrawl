@@ -962,13 +962,55 @@ async function runDevMode(): Promise<void> {
   watch.kill();
 }
 
+function waitForSignal(): Promise<void> {
+  return new Promise(resolve => {
+    const handler = () => resolve();
+    if (require.main === module) {
+      process.once("SIGINT", handler);
+      process.once("SIGTERM", handler);
+    }
+  });
+}
+
+function monitorServiceFailures(services: Services) {
+  const monitored: ProcessResult[] = [];
+
+  if (services.api) monitored.push(services.api);
+  if (services.worker) monitored.push(services.worker);
+  if (services.extractWorker) monitored.push(services.extractWorker);
+  if (services.nuqPrefetchWorker) monitored.push(services.nuqPrefetchWorker);
+  monitored.push(...services.nuqWorkers);
+  if (services.indexWorker) monitored.push(services.indexWorker);
+  if (services.command) monitored.push(services.command);
+
+  for (const service of monitored) {
+    service.promise.catch(error => {
+      logger.error("A service has terminated unexpectedly", error);
+      serviceError = true;
+      if (!shuttingDown) {
+        try {
+          process.kill(process.pid, "SIGTERM");
+        } catch {
+          process.exit(1);
+        }
+      }
+    });
+  }
+}
+
 async function runProductionMode(command: string[]): Promise<void> {
   const services = await startServices(command);
 
   logger.info(`Waiting for API on localhost:${PORT}`);
   await waitForPort(Number(PORT), "localhost");
 
-  await waitForTermination(services);
+  const isDockerMode = command[0] === "--start-docker";
+  if (isDockerMode) {
+    monitorServiceFailures(services);
+    await waitForSignal();
+  } else {
+    await waitForTermination(services);
+  }
 }
 
 let serviceError = false;

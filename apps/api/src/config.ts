@@ -68,12 +68,19 @@ const configSchema = z.object({
   GCS_INDEX_BUCKET_NAME: z.string().optional(),
   GCS_MEDIA_BUCKET_NAME: z.string().optional(),
 
-  // Fire Engine
+  // Fire Engine (Cloud)
   FIRE_ENGINE_BETA_URL: z.string().optional(),
   FIRE_ENGINE_STAGING_URL: z.string().optional(),
   FIRE_ENGINE_AB_URL: z.string().optional(),
   FIRE_ENGINE_AB_RATE: z.coerce.number().optional(),
   FIRE_ENGINE_AB_COMPARE_ENABLED: z.stringbool().default(false),
+
+  // Self-hosted Fire Engine
+  SELF_HOSTED_FIRE_ENGINE_ENABLED: z.stringbool().default(false),
+  SELF_HOSTED_FIRE_ENGINE_URL: z.string().optional(),
+  SELF_HOSTED_FIRE_ENGINE_AUTH_TOKEN: z.string().optional(),
+  SELF_HOSTED_FIRE_ENGINE_MAX_CONCURRENCY: z.coerce.number().default(10),
+  SELF_HOSTED_FIRE_ENGINE_TIMEOUT_MS: z.coerce.number().default(300000),
 
   // ScrapeURL
   SCRAPEURL_AB_HOST: z.string().optional(),

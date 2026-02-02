@@ -170,8 +170,46 @@ const failedSchema = z.object({
   error: z.string(),
 });
 
-export const fireEngineURL =
-  config.FIRE_ENGINE_BETA_URL ?? "<mock-fire-engine-url>";
+/**
+ * Get the Fire Engine URL to use.
+ * Prefers self-hosted if enabled, otherwise uses cloud.
+ */
+export function getFireEngineURL(): string {
+  // Self-hosted Fire Engine takes precedence when enabled
+  if (
+    config.SELF_HOSTED_FIRE_ENGINE_ENABLED &&
+    config.SELF_HOSTED_FIRE_ENGINE_URL
+  ) {
+    return config.SELF_HOSTED_FIRE_ENGINE_URL;
+  }
+  return config.FIRE_ENGINE_BETA_URL ?? "<mock-fire-engine-url>";
+}
+
+/**
+ * Check if using self-hosted Fire Engine
+ */
+export function isUsingSelfHostedFireEngine(): boolean {
+  return (
+    config.SELF_HOSTED_FIRE_ENGINE_ENABLED === true &&
+    config.SELF_HOSTED_FIRE_ENGINE_URL !== undefined &&
+    config.SELF_HOSTED_FIRE_ENGINE_URL !== ""
+  );
+}
+
+/**
+ * Get headers for Fire Engine requests (includes auth token for self-hosted)
+ */
+export function getFireEngineHeaders(): Record<string, string> {
+  if (isUsingSelfHostedFireEngine() && config.SELF_HOSTED_FIRE_ENGINE_AUTH_TOKEN) {
+    return {
+      Authorization: `Bearer ${config.SELF_HOSTED_FIRE_ENGINE_AUTH_TOKEN}`,
+    };
+  }
+
+  return {};
+}
+
+export const fireEngineURL = getFireEngineURL();
 export const fireEngineStagingURL =
   config.FIRE_ENGINE_STAGING_URL ?? "<mock-fire-engine-url>";
 
@@ -194,7 +232,7 @@ export async function fireEngineScrape<
   let status = await robustFetch({
     url: `${production ? fireEngineURL : fireEngineStagingURL}/scrape`,
     method: "POST",
-    headers: {},
+    headers: getFireEngineHeaders(),
     body: request,
     logger: logger.child({ method: "fireEngineScrape/robustFetch" }),
     tryCount: 3,

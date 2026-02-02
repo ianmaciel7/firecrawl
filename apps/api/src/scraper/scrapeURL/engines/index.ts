@@ -37,9 +37,20 @@ export type Engine =
   | "index"
   | "index;documents";
 
-const useFireEngine =
+// Cloud Fire Engine (proprietary)
+const useCloudFireEngine =
   config.FIRE_ENGINE_BETA_URL !== "" &&
   config.FIRE_ENGINE_BETA_URL !== undefined;
+
+// Self-hosted Fire Engine
+const useSelfHostedFireEngine =
+  config.SELF_HOSTED_FIRE_ENGINE_ENABLED === true &&
+  config.SELF_HOSTED_FIRE_ENGINE_URL !== "" &&
+  config.SELF_HOSTED_FIRE_ENGINE_URL !== undefined;
+
+// Fire Engine is available if either cloud or self-hosted is configured
+const useFireEngine = useCloudFireEngine || useSelfHostedFireEngine;
+
 const usePlaywright =
   config.PLAYWRIGHT_MICROSERVICE_URL !== "" &&
   config.PLAYWRIGHT_MICROSERVICE_URL !== undefined;

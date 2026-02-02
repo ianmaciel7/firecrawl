@@ -3,8 +3,8 @@ name: firecrawl
 x-common-service: &common-service
   # NOTE: If you don't want to build the service locally,
   # comment out the build: statement and uncomment the image: statement
-  # image: ghcr.io/firecrawl/firecrawl
-  build: apps/api
+  image: ghcr.io/firecrawl/firecrawl:latest
+  # build: apps/api
 
   ulimits:
     nofile:
@@ -40,6 +40,7 @@ x-common-env: &common-env
   MODEL_NAME: ${MODEL_NAME}
   MODEL_EMBEDDING_NAME: ${MODEL_EMBEDDING_NAME} 
   OLLAMA_BASE_URL: ${OLLAMA_BASE_URL} 
+  FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY}
   SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
   BULL_AUTH_KEY: ${BULL_AUTH_KEY}
   TEST_API_KEY: ${TEST_API_KEY}
@@ -54,13 +55,17 @@ x-common-env: &common-env
   SEARXNG_ENDPOINT: ${SEARXNG_ENDPOINT}
   SEARXNG_ENGINES: ${SEARXNG_ENGINES}
   SEARXNG_CATEGORIES: ${SEARXNG_CATEGORIES}
+  # Self-hosted Fire Engine (optional - set SELF_HOSTED_FIRE_ENGINE_ENABLED=true to use)
+  SELF_HOSTED_FIRE_ENGINE_ENABLED: ${SELF_HOSTED_FIRE_ENGINE_ENABLED:-true}
+  SELF_HOSTED_FIRE_ENGINE_URL: ${SELF_HOSTED_FIRE_ENGINE_URL:-http://fire-engine:3000}
+  SELF_HOSTED_FIRE_ENGINE_AUTH_TOKEN: ${FIRE_ENGINE_AUTH_TOKEN:-}
 
 services:
   playwright-service:
     # NOTE: If you don't want to build the service locally,
     # comment out the build: statement and uncomment the image: statement
-    # image: ghcr.io/firecrawl/playwright-service:latest
-    build: apps/playwright-service-ts
+    image: ghcr.io/firecrawl/playwright-service:latest
+    # build: apps/playwright-service-ts
     environment:
       PORT: 3000
       PROXY_SERVER: ${PROXY_SERVER}
@@ -81,6 +86,42 @@ services:
         max-size: "10m"
         max-file: "3"
         compress: "true"
+    tmpfs:
+      - /tmp/.cache:noexec,nosuid,size=1g
+
+  # Self-hosted Fire Engine service (optional)
+  # Provides advanced browser scraping with stealth mode, proxy rotation, and block detection
+  # Enable by setting SELF_HOSTED_FIRE_ENGINE_ENABLED=true in your .env file
+  fire-engine:
+    build: apps/fire-engine
+    environment:
+      PORT: 3000
+      AUTH_TOKEN: ${FIRE_ENGINE_AUTH_TOKEN:-}
+      MAX_CONCURRENT_PAGES: ${FIRE_ENGINE_MAX_CONCURRENCY:-10}
+      TIMEOUT_MS: ${FIRE_ENGINE_TIMEOUT_MS:-300000}
+      PROXY_SERVER: ${PROXY_SERVER}
+      PROXY_USERNAME: ${PROXY_USERNAME}
+      PROXY_PASSWORD: ${PROXY_PASSWORD}
+      LOG_LEVEL: ${LOGGING_LEVEL:-info}
+      STEALTH_ENABLED: "true"
+      BLOCK_MEDIA: ${BLOCK_MEDIA:-true}
+    networks:
+      - backend
+    cpus: 4.0
+    mem_limit: 8G
+    memswap_limit: 8G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     tmpfs:
       - /tmp/.cache:noexec,nosuid,size=1g
 
@@ -146,7 +187,8 @@ services:
         compress: "true"
   
   nuq-postgres:
-    build: apps/nuq-postgres
+    image: ghcr.io/firecrawl/nuq-postgres:latest
+    # build: apps/nuq-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
